@@ -14,28 +14,38 @@
  * limitations under the License.
  *
  */
-import { Box, Button, Grid, Grow, Modal, useTheme } from '@mui/material'
+import { Box, Button, Grid, Grow, MenuItem, Modal, Typography, useTheme } from '@mui/material'
 import { Confirm, setAlert, setConfirm } from 'slices/globalStatus'
+import { Form, Formik } from 'formik'
+import { SelectField, TextField } from '../../components/FormField'
+import { constructWorkflow, validateDeadline, validateName } from '../../lib/formikhelpers'
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useStoreDispatch, useStoreSelector } from 'store'
 
+import { Ace } from 'ace-builds'
 import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined'
 import { Event } from 'api/events.type'
 import { EventHandler } from 'cytoscape'
 import EventsTimeline from 'components/EventsTimeline'
+import FileCopyOutlinedIcon from '@mui/icons-material/FileCopyOutlined'
 import NodeConfiguration from 'components/ObjectConfiguration/Node'
 import Paper from '@ui/mui-extends/esm/Paper'
 import PaperTop from '@ui/mui-extends/esm/PaperTop'
+import PublishIcon from '@mui/icons-material/Publish'
+import SaveOutlined from '@mui/icons-material/SaveOutlined'
 import Space from '@ui/mui-extends/esm/Space'
 import T from 'components/T'
+import { WorkflowBasic } from '../../components/NewWorkflow'
 import { WorkflowSingle } from 'api/workflows.type'
+import _isEmpty from 'lodash.isempty'
 import api from 'api'
 import { constructWorkflowTopology } from 'lib/cytoscape'
 import loadable from '@loadable/component'
 import { makeStyles } from '@mui/styles'
+import { resetWorkflow } from '../../slices/workflows'
 import { useIntervalFetch } from 'lib/hooks'
 import { useIntl } from 'react-intl'
-import { useStoreDispatch } from 'store'
 import yaml from 'js-yaml'
 
 const YAMLEditor = loadable(() => import('components/YAMLEditor'))
@@ -62,15 +72,24 @@ const Single = () => {
   const navigate = useNavigate()
   const theme = useTheme()
   const { uuid } = useParams()
+  const location = useLocation()
 
   const dispatch = useStoreDispatch()
 
+  const state = useStoreSelector((state) => state)
+  const { namespaces } = state.experiments
   const [single, setSingle] = useState<WorkflowSingle>()
   const [data, setData] = useState<any>()
   const [selected, setSelected] = useState<'workflow' | 'node'>('workflow')
   const modalTitle = selected === 'workflow' ? single?.name : selected === 'node' ? data.name : ''
   const [configOpen, setConfigOpen] = useState(false)
+  const [workflowBasic, setWorkflowBasic] = useState<WorkflowBasic>({
+    name: '',
+    namespace: '',
+    deadline: '',
+  })
   const topologyRef = useRef<any>(null)
+  const [yamlEditor, setYAMLEditor] = useState<Ace.Editor>()
 
   const [events, setEvents] = useState<Event[]>([])
 
@@ -171,16 +190,51 @@ const Single = () => {
     onModalOpen()
   }
 
+  const onValidate = setWorkflowBasic
+
+  const submitWorkflow = () => {
+    const workflow = yamlEditor?.getValue()
+
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('Debug workflow:', workflow)
+    }
+
+    api.workflows
+      .newWorkflow(yaml.load(workflow!))
+      .then(() => {
+        dispatch(resetWorkflow())
+
+        navigate('/workflows')
+      })
+      .catch(console.error)
+  }
+
   return (
     <>
       <Grow in={true} style={{ transformOrigin: '0 0 0' }}>
         <div>
           <Space spacing={6} className={classes.root}>
             <Space direction="row">
+              {location.pathname.endsWith('/clone') ? (
+                <Button type="submit" variant="contained" color="primary" size="small" startIcon={<PublishIcon />}>
+                  {T('newW.submit')}
+                </Button>
+              ) : (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<FileCopyOutlinedIcon />}
+                  onClick={() => navigate(`/workflows/${uuid}/clone`)}
+                >
+                  {T('common.copy')}
+                </Button>
+              )}
+
               <Button
                 variant="outlined"
                 size="small"
                 startIcon={<ArchiveOutlinedIcon />}
+                sx={{ marginLeft: 'auto' }}
                 onClick={handleSelect({
                   title: `${T('archives.single', intl)} ${single?.name}`,
                   description: T('workflows.deleteDesc', intl),
@@ -203,12 +257,65 @@ const Single = () => {
 
             <Grid container>
               <Grid item xs={12} lg={6} sx={{ pr: 3 }}>
-                <Paper sx={{ display: 'flex', flexDirection: 'column', height: 600 }}>
-                  <PaperTop title={T('events.title')} boxProps={{ mb: 3 }} />
-                  <Box flex={1} overflow="scroll">
-                    <EventsTimeline events={events} />
-                  </Box>
-                </Paper>
+                {location.pathname.endsWith('/clone') ? (
+                  <Formik
+                    initialValues={{ name: '', namespace: '', deadline: '' }}
+                    onSubmit={submitWorkflow}
+                    validate={onValidate}
+                    validateOnBlur={false}
+                  >
+                    {({ errors, touched }) => (
+                      <Form style={{ height: '100%' }}>
+                        <Space height="100%">
+                          <Typography>{T('newW.titleBasic')}</Typography>
+                          <TextField
+                            name="name"
+                            label={T('common.name')}
+                            validate={validateName(T('newW.nameValidation', intl))}
+                            helperText={errors.name && touched.name ? errors.name : T('newW.nameHelper')}
+                            error={errors.name && touched.name ? true : false}
+                          />
+                          <SelectField
+                            name="namespace"
+                            label={T('k8s.namespace')}
+                            helperText={T('newE.basic.namespaceHelper')}
+                          >
+                            {namespaces.map((n) => (
+                              <MenuItem key={n} value={n}>
+                                {n}
+                              </MenuItem>
+                            ))}
+                          </SelectField>
+                          <TextField
+                            name="deadline"
+                            label={T('newW.node.deadline')}
+                            validate={validateDeadline(T('newW.node.deadlineValidation', intl))}
+                            helperText={
+                              errors.deadline && touched.deadline ? errors.deadline : T('newW.node.deadlineHelper')
+                            }
+                            error={errors.deadline && touched.deadline ? true : false}
+                          />
+                          <Button
+                            type="submit"
+                            variant="contained"
+                            color="primary"
+                            startIcon={<PublishIcon />}
+                            fullWidth
+                          >
+                            {T('newW.submit')}
+                          </Button>
+                        </Space>
+                      </Form>
+                    )}
+                  </Formik>
+                ) : (
+                  <Paper sx={{ display: 'flex', flexDirection: 'column', height: 600 }}>
+                    <PaperTop title={T('events.title')} boxProps={{ mb: 3 }} />
+                    <Box flex={1} overflow="scroll">
+                      <EventsTimeline events={events} />
+                    </Box>
+                  </Paper>
+                )}
               </Grid>
               <Grid item xs={12} lg={6} sx={{ pl: 3 }}>
                 <Paper sx={{ height: 600, p: 0 }}>
@@ -250,7 +357,7 @@ const Single = () => {
                       <NodeConfiguration template={data} />
                     </Box>
                   )}
-                  <YAMLEditor name={modalTitle} data={yaml.dump(data)} />
+                  <YAMLEditor name={modalTitle} data={yaml.dump(data)} mountEditor={setYAMLEditor} />
                 </Box>
               </Space>
             )}

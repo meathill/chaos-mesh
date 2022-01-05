@@ -48,6 +48,10 @@ const routes: RouteProps[] = [
     path: '/workflows/:uuid',
   },
   {
+    element: <Workflow />,
+    path: '/workflows/:uuid/clone',
+  },
+  {
     element: <NewSchedule />,
     path: '/schedules/new',
   },
