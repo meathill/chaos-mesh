@@ -20,6 +20,7 @@ import { useStoreDispatch, useStoreSelector } from 'store'
 
 import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined'
 import DateTime from 'lib/luxon'
+import FileCopyOutlinedIcon from '@mui/icons-material/FileCopyOutlined'
 import Paper from '@ui/mui-extends/esm/Paper'
 import Space from '@ui/mui-extends/esm/Space'
 import StatusLabel from 'components/StatusLabel'
@@ -47,6 +48,12 @@ const DataTable: React.FC<DataTableProps> = ({ data, fetchData }) => {
     event.stopPropagation()
 
     dispatch(setConfirm(selected))
+  }
+
+  const handleClone = (uuid: string) => (event: React.MouseEvent<HTMLSpanElement>) => {
+    event.stopPropagation()
+
+    navigate(`/workflows/${uuid}/clone`)
   }
 
   const handleAction = (action: string, uuid: uuid) => () => {
@@ -117,6 +124,16 @@ const DataTable: React.FC<DataTableProps> = ({ data, fetchData }) => {
                     })}
                   >
                     <ArchiveOutlinedIcon />
+                  </IconButton>
+
+                  <IconButton
+                    color="success"
+                    title={T('common.copy', intl)}
+                    component="span"
+                    size="small"
+                    onClick={handleClone(d.uid)}
+                  >
+                    <FileCopyOutlinedIcon />
                   </IconButton>
                 </Space>
               </TableCell>
