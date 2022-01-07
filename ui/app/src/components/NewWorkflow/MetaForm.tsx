@@ -25,6 +25,7 @@ interface MetaFormProps {
   preview?: boolean
   single?: WorkflowSingle
   externalEditor?: Ace.Editor
+  submitable?: boolean
 }
 
 export type WorkflowBasic = {
@@ -33,7 +34,7 @@ export type WorkflowBasic = {
   deadline: string
 }
 
-const MetaForm: FC<MetaFormProps> = ({ preview = false, single, externalEditor }) => {
+const MetaForm: FC<MetaFormProps> = ({ preview = false, single, externalEditor, submitable = false }) => {
   const intl = useIntl()
 
   const navigate = useNavigate()
@@ -133,7 +134,7 @@ const MetaForm: FC<MetaFormProps> = ({ preview = false, single, externalEditor }
                 color="primary"
                 startIcon={<PublishIcon />}
                 fullWidth
-                disabled={_isEmpty(templates)}
+                disabled={!submitable && _isEmpty(templates)}
               >
                 {T('newW.submit')}
               </Button>

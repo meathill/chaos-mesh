@@ -72,8 +72,6 @@ const Single = () => {
 
   const dispatch = useStoreDispatch()
 
-  const state = useStoreSelector((state) => state)
-  const { templates } = state.workflows
   const [single, setSingle] = useState<WorkflowSingle>()
   const [data, setData] = useState<any>()
   const [selected, setSelected] = useState<'workflow' | 'node'>('workflow')
@@ -200,7 +198,11 @@ const Single = () => {
 
   const handleNodeClick: EventHandler = (e) => {
     const node = e.target
-    const { template: nodeTemplate } = node.data()
+    const { id, template: nodeTemplate } = node.data()
+    if (id === 'entry') {
+      return
+    }
+
     const template = single?.kube_object.spec.templates.find((t: any) => t.name === nodeTemplate)
 
     setData(template)
@@ -222,7 +224,7 @@ const Single = () => {
                   color="primary"
                   size="small"
                   startIcon={<PublishIcon />}
-                  disabled={_isEmpty(templates)}
+                  disabled={!single}
                 >
                   {T('newW.submit')}
                 </Button>
@@ -267,7 +269,7 @@ const Single = () => {
             <Grid container>
               <Grid item xs={12} lg={6} sx={{ pr: 3 }}>
                 {isCloneOrNew ? (
-                  <MetaForm single={single} externalEditor={yamlEditor}></MetaForm>
+                  <MetaForm single={single} externalEditor={yamlEditor} submitable={true}></MetaForm>
                 ) : (
                   <Paper sx={{ display: 'flex', flexDirection: 'column', height: 600 }}>
                     <PaperTop title={T('events.title')} boxProps={{ mb: 3 }} />
