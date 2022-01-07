@@ -40,6 +40,10 @@ const routes: RouteProps[] = [
     path: '/workflows/new',
   },
   {
+    element: <Workflow />,
+    path: '/workflows/new2',
+  },
+  {
     element: <Workflows />,
     path: '/workflows',
   },

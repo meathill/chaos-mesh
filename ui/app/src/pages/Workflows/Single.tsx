@@ -14,9 +14,9 @@
  * limitations under the License.
  *
  */
-import { Box, Button, Grid, Grow, Modal, useTheme } from '@mui/material'
+import { Box, Button, Grid, Grow, Modal, Stack, useTheme } from '@mui/material'
 import { Confirm, setAlert, setConfirm } from 'slices/globalStatus'
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useStoreDispatch, useStoreSelector } from 'store'
 
@@ -27,6 +27,7 @@ import { EventHandler } from 'cytoscape'
 import EventsTimeline from 'components/EventsTimeline'
 import FileCopyOutlinedIcon from '@mui/icons-material/FileCopyOutlined'
 import MetaForm from 'components/NewWorkflow/MetaForm'
+import NewExperimentNext from 'components/NewExperimentNext'
 import NodeConfiguration from 'components/ObjectConfiguration/Node'
 import Paper from '@ui/mui-extends/esm/Paper'
 import PaperTop from '@ui/mui-extends/esm/PaperTop'
@@ -67,7 +68,7 @@ const Single = () => {
   const navigate = useNavigate()
   const theme = useTheme()
   const { uuid } = useParams()
-  const location = useLocation()
+  const isCloneOrNew = /\/(clone|new2)$/.test(useLocation().pathname)
 
   const dispatch = useStoreDispatch()
 
@@ -83,7 +84,34 @@ const Single = () => {
 
   const [events, setEvents] = useState<Event[]>([])
 
-  const fetchWorkflowSingle = (intervalID?: number) =>
+  const fetchWorkflowSingle = (intervalID?: number) => {
+    if (!uuid) {
+      clearInterval(intervalID)
+      setSingle({
+        is: 'workflow',
+        uid: '',
+        name: '',
+        namespace: '',
+        entry: 'entry',
+        created_at: '',
+        end_time: '',
+        status: 'running',
+        topology: {
+          nodes: [
+            {
+              name: 'entry',
+              state: 'unknown',
+              template: 'entry',
+              type: 'SerialNode',
+              serial: [],
+            },
+          ],
+        },
+        kube_object: null,
+      })
+      return
+    }
+
     api.workflows
       .single(uuid!)
       .then(({ data }) => {
@@ -99,6 +127,7 @@ const Single = () => {
         }
       })
       .catch(console.error)
+  }
 
   useIntervalFetch(fetchWorkflowSingle)
 
@@ -127,7 +156,7 @@ const Single = () => {
         })
     }
 
-    if (single) {
+    if (single && !isCloneOrNew) {
       fetchEvents()
     }
 
@@ -186,7 +215,7 @@ const Single = () => {
         <div>
           <Space spacing={6} className={classes.root}>
             <Space direction="row">
-              {location.pathname.endsWith('/clone') ? (
+              {isCloneOrNew ? (
                 <Button
                   type="submit"
                   variant="contained"
@@ -198,29 +227,31 @@ const Single = () => {
                   {T('newW.submit')}
                 </Button>
               ) : (
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<FileCopyOutlinedIcon />}
-                  onClick={() => navigate(`/workflows/${uuid}/clone`)}
-                >
-                  {T('common.copy')}
-                </Button>
-              )}
+                <Fragment>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<FileCopyOutlinedIcon />}
+                    onClick={() => navigate(`/workflows/${uuid}/clone`)}
+                  >
+                    {T('common.copy')}
+                  </Button>
 
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<ArchiveOutlinedIcon />}
-                sx={{ marginLeft: 'auto' }}
-                onClick={handleSelect({
-                  title: `${T('archives.single', intl)} ${single?.name}`,
-                  description: T('workflows.deleteDesc', intl),
-                  handle: handleAction('archive'),
-                })}
-              >
-                {T('archives.single')}
-              </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<ArchiveOutlinedIcon />}
+                    sx={{ marginLeft: 'auto' }}
+                    onClick={handleSelect({
+                      title: `${T('archives.single', intl)} ${single?.name}`,
+                      description: T('workflows.deleteDesc', intl),
+                      handle: handleAction('archive'),
+                    })}
+                  >
+                    {T('archives.single')}
+                  </Button>
+                </Fragment>
+              )}
             </Space>
             <Paper sx={{ display: 'flex', flexDirection: 'column', height: 450 }}>
               <PaperTop
@@ -235,7 +266,7 @@ const Single = () => {
 
             <Grid container>
               <Grid item xs={12} lg={6} sx={{ pr: 3 }}>
-                {location.pathname.endsWith('/clone') ? (
+                {isCloneOrNew ? (
                   <MetaForm single={single} externalEditor={yamlEditor}></MetaForm>
                 ) : (
                   <Paper sx={{ display: 'flex', flexDirection: 'column', height: 600 }}>
@@ -259,6 +290,7 @@ const Single = () => {
                             kind: 'Workflow',
                             ...single.kube_object,
                           })}
+                          mountEditor={setYAMLEditor}
                           download
                         />
                       </Box>
@@ -275,9 +307,14 @@ const Single = () => {
         <div>
           <Paper
             className={classes.configPaper}
-            sx={{ width: selected === 'workflow' ? '50vw' : selected === 'node' ? '70vw' : '50vw' }}
+            sx={{ width: selected === 'workflow' ? '50vw' : selected === 'node' ? '70vw' : '50vw', overflow: 'auto' }}
           >
-            {single && configOpen && (
+            {isCloneOrNew && (
+              <Stack sx={{ p: 8 }}>
+                <NewExperimentNext></NewExperimentNext>
+              </Stack>
+            )}
+            {single && configOpen && !isCloneOrNew && (
               <Space display="flex" flexDirection="column" height="100%">
                 <PaperTop title={modalTitle} boxProps={{ p: 4.5, pb: 0 }} />
                 <Box display="flex" flex={1}>
@@ -286,7 +323,7 @@ const Single = () => {
                       <NodeConfiguration template={data} />
                     </Box>
                   )}
-                  <YAMLEditor name={modalTitle} data={yaml.dump(data)} mountEditor={setYAMLEditor} />
+                  <YAMLEditor name={modalTitle} data={yaml.dump(data)} />
                 </Box>
               </Space>
             )}

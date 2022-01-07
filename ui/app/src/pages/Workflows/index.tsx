@@ -58,6 +58,14 @@ const Workflows = () => {
             <Button variant="outlined" startIcon={<AddIcon />} onClick={() => navigate('/workflows/new')}>
               {T('newW.title')}
             </Button>
+            <Button
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={() => navigate('/workflows/new2')}
+              sx={{ ml: 2 }}
+            >
+              {T('newW.title')} (hackthon)
+            </Button>
           </Box>
 
           {workflows.length > 0 && <DataTable data={workflows} fetchData={fetchWorkflows} />}

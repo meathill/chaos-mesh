@@ -1,6 +1,6 @@
 import { Box, Button, MenuItem, Typography } from '@mui/material'
+import { FC, Fragment, useEffect, useRef, useState } from 'react'
 import { Form, Formik } from 'formik'
-import React, { useEffect, useRef, useState } from 'react'
 import { SelectField, TextField } from 'components/FormField'
 import { constructWorkflow, validateDeadline, validateName } from 'lib/formikhelpers'
 import { useStoreDispatch, useStoreSelector } from 'store'
@@ -33,7 +33,7 @@ export type WorkflowBasic = {
   deadline: string
 }
 
-const MetaForm: React.FC<MetaFormProps> = ({ preview = false, single = undefined, externalEditor = undefined }) => {
+const MetaForm: FC<MetaFormProps> = ({ preview = false, single, externalEditor }) => {
   const intl = useIntl()
 
   const navigate = useNavigate()
@@ -58,6 +58,10 @@ const MetaForm: React.FC<MetaFormProps> = ({ preview = false, single = undefined
     formikRef.current.setFieldValue('namespace', namespace)
   }, [single])
 
+  useEffect(() => {
+    setYAMLEditor(externalEditor)
+  }, [externalEditor])
+
   const submitWorkflow = () => {
     const workflow = yamlEditor?.getValue()
 
@@ -75,10 +79,6 @@ const MetaForm: React.FC<MetaFormProps> = ({ preview = false, single = undefined
       .catch(console.error)
   }
   const onValidate = setWorkflowBasic
-
-  if (externalEditor) {
-    setYAMLEditor(externalEditor)
-  }
 
   return (
     <>
@@ -115,7 +115,7 @@ const MetaForm: React.FC<MetaFormProps> = ({ preview = false, single = undefined
                 error={errors.deadline && touched.deadline ? true : false}
               />
               {preview && (
-                <React.Fragment>
+                <Fragment>
                   <Typography>{T('common.preview')}</Typography>
                   <Box flex={1}>
                     <Paper sx={{ p: 0 }}>
@@ -125,7 +125,7 @@ const MetaForm: React.FC<MetaFormProps> = ({ preview = false, single = undefined
                       />
                     </Paper>
                   </Box>
-                </React.Fragment>
+                </Fragment>
               )}
               <Button
                 type="submit"
