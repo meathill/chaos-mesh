@@ -70,8 +70,15 @@ const MetaForm: FC<MetaFormProps> = ({ preview = false, single, externalEditor, 
       console.debug('Debug workflow:', workflow)
     }
 
+    const data: any = yaml.load(workflow!)
+
+    if (!preview) {
+      data.metadata.name = workflowBasic.name
+      data.metadata.namespace = workflowBasic.namespace
+    }
+
     api.workflows
-      .newWorkflow(yaml.load(workflow!))
+      .newWorkflow(data)
       .then(() => {
         dispatch(resetWorkflow())
 
